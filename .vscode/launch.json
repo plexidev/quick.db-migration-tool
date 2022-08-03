@@ -1,0 +1,50 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'quick-db-migration-tool'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=quick-db-migration-tool",
+                    "--package=quick-db-migration-tool"
+                ],
+                "filter": {
+                    "name": "quick-db-migration-tool",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'quick-db-migration-tool'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=quick-db-migration-tool",
+                    "--package=quick-db-migration-tool"
+                ],
+                "filter": {
+                    "name": "quick-db-migration-tool",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--input",
+                "./samples/json.sqlite",
+                "--output",
+                "../test.sqlite"
+            ],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
