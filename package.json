@@ -1,0 +1,19 @@
+{
+    "name": "quick.db-migration-tool",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "bin": {
+        "migration-tool": "index.js"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "sqlite3": "^5.0.11",
+        "yargs": "^17.5.1"
+    }
+}
