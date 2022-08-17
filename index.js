@@ -56,19 +56,29 @@ function processTable(db, dbOut, table) {
                     }
 
                     console.log(`Processing row with key ${row.ID}`);
-                    let toInsert = JSON.parse(row.json);
-                    try {
-                        let tmp = JSON.parse(JSON.parse(toInsert));
-                        if (typeof JSON.parse(tmp) == "object" || Array.isArray(JSON.parse(tmp))) {
-                            toInsert = tmp;
-                        }
+                    let oldInsert = row.json;
+                    let toInsert = row.json;
 
-                        tmp = JSON.parse(tmp);
-                        if (typeof JSON.parse(tmp) == "object" || Array.isArray(JSON.parse(tmp))) {
-                            toInsert = tmp;
+                    while (true) {
+                        try {
+                            const tmp = JSON.parse(toInsert);
+                            if (typeof tmp == "object" || Array.isArray(tmp)) {
+                                break;
+                            } else if (typeof tmp == "string") {
+                                oldInsert = toInsert;
+                                toInsert = tmp;
+                                continue;
+                            } else if (typeof tmp == "number") {
+                                break;
+                            } else if (typeof tmp == "boolean") {
+                                break;
+                            } else {
+                            }
+                        } catch (e) {
+                            // restore last previous string
+                            toInsert = oldInsert;
+                            break;
                         }
-                    } catch (e) {
-
                     }
 
                     stmt.run(row.ID, toInsert);
