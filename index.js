@@ -56,7 +56,7 @@ function processTable(db, dbOut, table) {
                     }
 
                     console.log(`Processing row with key ${row.ID}`);
-                    const toInsert = JSON.parse(JSON.parse(row.json));
+                    const toInsert = JSON.parse(row.json);
                     stmt.run(row.ID, toInsert);
                 }, () => {
                     stmt.finalize(err => {
