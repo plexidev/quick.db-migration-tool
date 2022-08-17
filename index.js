@@ -56,7 +56,12 @@ function processTable(db, dbOut, table) {
                     }
 
                     console.log(`Processing row with key ${row.ID}`);
-                    const toInsert = JSON.parse(row.json);
+                    let toInsert = JSON.parse(row.json);
+                    const tmp = JSON.parse(toInsert);
+                    if (typeof tmp == "object" || Array.isArray(tmp)) {
+                        toInsert = tmp;
+                    }
+
                     stmt.run(row.ID, toInsert);
                 }, () => {
                     stmt.finalize(err => {
@@ -89,9 +94,9 @@ async function main() {
         fatal(`${vargs.input}: file doesn't exist`);
     }
 
-    // if (fs.existsSync(vargs.output)) {
-    //     fatal(`output file already exist: ${vargs.output}`);
-    // }
+    if (fs.existsSync(vargs.output)) {
+        fatal(`output file already exist: ${vargs.output}`);
+    }
 
     console.log(`Loading ${vargs.input} file`);
     const db = new sqlite3.Database(vargs.input);
