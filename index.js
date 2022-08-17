@@ -57,9 +57,18 @@ function processTable(db, dbOut, table) {
 
                     console.log(`Processing row with key ${row.ID}`);
                     let toInsert = JSON.parse(row.json);
-                    const tmp = JSON.parse(toInsert);
-                    if (typeof tmp == "object" || Array.isArray(tmp)) {
-                        toInsert = tmp;
+                    try {
+                        let tmp = JSON.parse(JSON.parse(toInsert));
+                        if (typeof JSON.parse(tmp) == "object" || Array.isArray(JSON.parse(tmp))) {
+                            toInsert = tmp;
+                        }
+
+                        tmp = JSON.parse(tmp);
+                        if (typeof JSON.parse(tmp) == "object" || Array.isArray(JSON.parse(tmp))) {
+                            toInsert = tmp;
+                        }
+                    } catch (e) {
+
                     }
 
                     stmt.run(row.ID, toInsert);
