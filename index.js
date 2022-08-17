@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const fs = require("fs");
 const sqlite3 = require("sqlite3");
 const yargs = require("yargs/yargs");

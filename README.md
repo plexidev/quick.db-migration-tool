@@ -1,7 +1,7 @@
 # Install
 
 ```
-npm i quick.db-migration-tool
+npm i -g quick.db-migration-tool
 ```
 
 # Usage
