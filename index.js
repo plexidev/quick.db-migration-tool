@@ -57,6 +57,7 @@ function processTable(srcDb, destDb, tableName) {
         for (const row of selectStmt.iterate()) {
             console.log(`Inserting row with ID ${row.ID}`);
             let toInsert = row.json;
+            let oldInsert = row.json;
             while (true) {
                 try {
                     const tmp = JSON.parse(toInsert);
