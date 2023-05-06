@@ -1,6 +1,6 @@
 {
     "name": "quick.db-migration-tool",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "",
     "main": "index.js",
     "bin": {
@@ -13,7 +13,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "sqlite3": "^5.0.11",
+        "better-sqlite3": "^8.3.0",
         "yargs": "^17.5.1"
     }
 }

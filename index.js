@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const fs = require("fs");
-const sqlite3 = require("sqlite3");
+const Database = require("better-sqlite3");
 const yargs = require("yargs/yargs");
 const { hideBin } = require("yargs/helpers");
 
@@ -8,14 +8,19 @@ const vargs = yargs(hideBin(process.argv))
     .option("input", {
         alias: "i",
         type: "string",
-        description: "The input sqlite file to fix"
+        description: "The input sqlite file to fix",
     })
     .option("output", {
         alias: "o",
         type: "string",
-        description: "The output sqlite file"
+        description: "The output sqlite file",
     })
-    .parse()
+    .option("check-integrity", {
+        alias: "c",
+        type: "boolean",
+        description: "Check the integrity of the sqlite file",
+    })
+    .parse();
 
 function fatal(msg) {
     console.log(msg);
@@ -23,80 +28,124 @@ function fatal(msg) {
 }
 
 function getTables(db) {
-    return new Promise((res) => {
-        const tables = [];
-        db.each("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%'", (err, row) => {
-            if (err) {
-                fatal(err);
-            }
-
-            tables.push(row.name);
-        }, () => {
-            res(tables);
-        });
-    });
+    const query = "SELECT name FROM sqlite_master WHERE type='table'";
+    const statement = db.prepare(query);
+    const tables = statement.all();
+    return tables.map((table) => table.name);
 }
 
-function processTable(db, dbOut, table) {
-    return new Promise(res => {
-        console.log(`Processing table: ${table}`);
-        dbOut.run(`CREATE TABLE ${table} (ID TEXT, json TEXT)`, error => {
-            if (error) {
-                fatal(error);
-            }
+function processTable(srcDb, destDb, tableName) {
+    console.log(`Processing table: ${tableName}`);
+    const schema = srcDb
+        .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`)
+        .get(tableName);
 
-            const stmt = dbOut.prepare(`INSERT INTO ${table} VALUES (?, ?)`, err => {
-                if (err) {
-                    fatal(err);
+    // Create the table in the destination database with the same schema
+    destDb.exec(schema.sql);
+
+    // Prepare SELECT and INSERT statements
+    const selectStmt = srcDb.prepare(`SELECT * FROM ${tableName}`);
+    const columnNames = selectStmt.columns().map((column) => column.name);
+    const insertStmt = destDb.prepare(
+        `INSERT INTO ${tableName} (${columnNames.join(
+            ", "
+        )}) VALUES (${columnNames.map(() => "?").join(", ")})`
+    );
+
+    // Begin a transaction in the destination database
+    const insertTransaction = destDb.transaction(() => {
+        for (const row of selectStmt.iterate()) {
+            console.log(`Inserting row with ID ${row.ID}`);
+            let toInsert = row.json;
+            while (true) {
+                try {
+                    const tmp = JSON.parse(toInsert);
+                    if (typeof tmp == "object" || Array.isArray(tmp)) {
+                        break;
+                    } else if (typeof tmp == "string") {
+                        oldInsert = toInsert;
+                        toInsert = tmp;
+                        continue;
+                    } else if (typeof tmp == "number") {
+                        break;
+                    } else if (typeof tmp == "boolean") {
+                        break;
+                    } else {
+                    }
+                } catch (e) {
+                    // restore last previous string
+                    toInsert = oldInsert;
+                    break;
                 }
+            }
 
-                db.each(`SELECT ID, json FROM ${table}`, (err, row) => {
-                    if (err) {
-                        fatal(err);
-                    }
-
-                    console.log(`Processing row with key ${row.ID}`);
-                    let oldInsert = row.json;
-                    let toInsert = row.json;
-
-                    while (true) {
-                        try {
-                            const tmp = JSON.parse(toInsert);
-                            if (typeof tmp == "object" || Array.isArray(tmp)) {
-                                break;
-                            } else if (typeof tmp == "string") {
-                                oldInsert = toInsert;
-                                toInsert = tmp;
-                                continue;
-                            } else if (typeof tmp == "number") {
-                                break;
-                            } else if (typeof tmp == "boolean") {
-                                break;
-                            } else {
-                            }
-                        } catch (e) {
-                            // restore last previous string
-                            toInsert = oldInsert;
-                            break;
-                        }
-                    }
-
-                    stmt.run(row.ID, toInsert);
-                }, () => {
-                    stmt.finalize(err => {
-                        if (err) {
-                            fatal(err);
-                        }
-
-                        res();
-                    });
-                });
-            });
-        });
+            row.json = toInsert;
+            insertStmt.run(Object.values(row));
+        }
     });
+
+    // Increase the timeout for the transaction (in milliseconds)
+    destDb.pragma("busy_timeout = 60000"); // 60 seconds
+
+    // Execute the transaction
+    insertTransaction();
 }
 
-async function main() {
+/*
+while (true) {
+                                try {
+                                    const tmp = JSON.parse(toInsert);
+                                    if (
+                                        typeof tmp == "object" ||
+                                        Array.isArray(tmp)
+                                    ) {
+                                        break;
+                                    } else if (typeof tmp == "string") {
+                                        oldInsert = toInsert;
+                                        toInsert = tmp;
+                                        continue;
+                                    } else if (typeof tmp == "number") {
+                                        break;
+                                    } else if (typeof tmp == "boolean") {
+                                        break;
+                                    } else {
+                                    }
+                                } catch (e) {
+                                    // restore last previous string
+                                    toInsert = oldInsert;
+                                    break;
+                                }
+                            }
+*/
+
+function checkIntegrity(srcDb, destDb, tables) {
+    for (const tableName of tables) {
+        console.log(`Checking integrity for table: ${tableName}`);
+
+        // Prepare SELECT statements
+        const srcSelectStmt = srcDb.prepare(`SELECT * FROM ${tableName}`);
+        const destSelectStmt = destDb.prepare(
+            `SELECT * FROM ${tableName} WHERE ID = ?`
+        );
+
+        // Iterate over all rows in the source table
+        for (const srcRow of srcSelectStmt.iterate()) {
+            // Fetch the corresponding row from the destination table using the primary key (assuming 'id' as primary key)
+            const destRow = destSelectStmt.get(srcRow.ID);
+
+            // Check if the row exists in the destination table and is not null
+            if (destRow && destRow !== null) {
+                console.log(`Row with ID ${srcRow.ID} exists in both tables.`);
+            } else {
+                fatal(
+                    `Row with ID ${srcRow.ID} is missing or null in the destination table.`
+                );
+            }
+        }
+    }
+}
+
+function main() {
     if (!vargs.input) {
         fatal("Missing input");
     }
@@ -118,24 +167,29 @@ async function main() {
     }
 
     console.log(`Loading ${vargs.input} file`);
-    const db = new sqlite3.Database(vargs.input);
+    const db = new Database(vargs.input);
     console.log("Sqlite loaded");
 
     console.log(`Creating output sqlite file: ${vargs.output}`);
-    const dbOut = new sqlite3.Database(vargs.output);
+    const dbOut = new Database(vargs.output);
 
     console.log("Getting tables");
-    const tables = await getTables(db);
+    const tables = getTables(db);
     console.log(`Tables found: [${tables.join(", ")}]`);
 
     for (const table of tables) {
-        await processTable(db, dbOut, table);
+        processTable(db, dbOut, table);
     }
 
     console.log("Done!");
+
+    if (vargs["check-integrity"]) {
+        checkIntegrity(db, dbOut, tables);
+        console.log("Done!");
+    }
+
     db.close();
     dbOut.close();
 }
-
 
 main();
