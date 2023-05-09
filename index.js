@@ -66,17 +66,27 @@ function processTable(srcDb, destDb, tableName) {
                     } else if (typeof tmp == "string") {
                         oldInsert = toInsert;
                         toInsert = tmp;
-                        continue;
                     } else if (typeof tmp == "number") {
+                        if (tmp > Number.MAX_SAFE_INTEGER) {
+                            // restore because it's too big
+                            toInsert = oldInsert;
+                        }
                         break;
                     } else if (typeof tmp == "boolean") {
                         break;
                     } else {
+                        fatal(`Unknown type: ${typeof tmp}`);
                     }
                 } catch (e) {
                     // restore last previous string
                     toInsert = oldInsert;
                     break;
+                }
+            }
+
+            if (typeof toInsert == "number" || typeof toInsert == "string") {
+                if (toInsert > Number.MAX_SAFE_INTEGER) {
+                    fatal(`Number too big: ${toInsert}`);
                 }
             }
 
@@ -91,33 +101,6 @@ function processTable(srcDb, destDb, tableName) {
     // Execute the transaction
     insertTransaction();
 }
-
-/*
-while (true) {
-                                try {
-                                    const tmp = JSON.parse(toInsert);
-                                    if (
-                                        typeof tmp == "object" ||
-                                        Array.isArray(tmp)
-                                    ) {
-                                        break;
-                                    } else if (typeof tmp == "string") {
-                                        oldInsert = toInsert;
-                                        toInsert = tmp;
-                                        continue;
-                                    } else if (typeof tmp == "number") {
-                                        break;
-                                    } else if (typeof tmp == "boolean") {
-                                        break;
-                                    } else {
-                                    }
-                                } catch (e) {
-                                    // restore last previous string
-                                    toInsert = oldInsert;
-                                    break;
-                                }
-                            }
-*/
 
 function checkIntegrity(srcDb, destDb, tables) {
     for (const tableName of tables) {
